@@ -1,6 +1,6 @@
-# Ansible Role for YUM Repos
+# Ansible Role for PHP-FPM Repos
 
-An Ansible Role for configuring PHPFPM
+An Ansible Role for configuring PHP-FPM
 
 ## Variables
 
