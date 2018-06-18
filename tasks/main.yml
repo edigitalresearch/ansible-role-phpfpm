@@ -1,0 +1,74 @@
+---
+- name: PHPFPM | Get facts
+  setup: filter=ansible_distribution_major_version
+  when: ansible_distribution_major_version is undefined
+
+- name: PHPFPM | Install yum packages
+  yum:
+    name: "{{ item }}"
+    update_cache: yes
+    state: "present"
+  with_list:
+    - php-{{ php.version }}
+    - php-fpm-{{ php.version }}
+
+## php.ini
+
+- name: PHPFPM | Render php.ini
+  template:
+    dest: /etc/php.ini
+    force: yes
+    mode: 644
+    owner: root
+    group: root
+    src: templates/ini.j2
+  vars:
+    data: "{{ php.ini_config }}"
+
+## phpfpm config
+
+- name: PHPFPM | Remove default fpm pool
+  file:
+    path: /etc/php-fpm.d/www.conf
+    state: absent
+
+- name: PHPFPM | Render php-fpm.conf files
+  template:
+    dest: /etc/php-fpm.d/{{ item.key }}.conf
+    force: yes
+    mode: 644
+    owner: root
+    group: root
+    src: templates/ini.j2
+  vars:
+    data: "{{ {item.key: item.value} }}"
+  with_dict: "{{ php.fpm_config }}"
+
+
+## extensions
+
+- name: PHPFPM | PHP extensions
+  yum:
+    name: "{{ item.key }}{%- if item.value.version|default(php.version) != False -%}-{{ item.value.version|default(php.version) }}{%- endif -%}"
+    update_cache: yes
+    state: "present"
+  with_dict: "{{ php_extensions }}"
+
+- name: PHPFPM | PHP extension config
+  template:
+    dest: /etc/php.d/{{ item.value.config.filename }}
+    force: yes
+    mode: 644
+    owner: root
+    group: root
+    src: templates/ini.j2
+  vars:
+    data: "{{ item.value.config.content }}"
+  with_dict: "{{ php_extensions }}"
+  when: item.value.config|default(false)
+
+- name: PHPFPM | Ensure services running
+  service:
+    name: "php-fpm"
+    enabled: yes
+    state: started
